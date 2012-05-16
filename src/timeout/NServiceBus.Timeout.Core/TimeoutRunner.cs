@@ -1,11 +1,17 @@
-﻿namespace NServiceBus.Timeout.Core
+﻿using NServiceBus.Logging;
+
+namespace NServiceBus.Timeout.Core
 {
     using System;
     using System.Diagnostics;
     using System.Linq;
     using System.Threading;
     using Dispatch;
+<<<<<<< HEAD
     using log4net;
+=======
+    using Unicast;
+>>>>>>> Changed a lot of references to log4net and replaced them with NServiceBus.Logging.
 
     public class TimeoutRunner : IWantToRunWhenTheBusStarts
     {

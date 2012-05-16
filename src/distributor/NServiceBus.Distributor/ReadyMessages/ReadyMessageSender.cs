@@ -1,9 +1,10 @@
-﻿namespace NServiceBus.Distributor.ReadyMessages
+﻿using NServiceBus.Logging;
+
+namespace NServiceBus.Distributor.ReadyMessages
 {
     using Unicast;
     using Unicast.Transport;
     using Unicast.Queuing;
-    using log4net;
 
     public class ReadyMessageSender : NServiceBus.IWantToRunWhenTheBusStarts
     {

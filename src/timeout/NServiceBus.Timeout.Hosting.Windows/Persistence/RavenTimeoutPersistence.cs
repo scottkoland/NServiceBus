@@ -5,10 +5,12 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
     using System.Linq;
     using Core;
     using Raven.Abstractions.Commands;
+    using Raven.Abstractions.Indexing;
     using Raven.Client;
+    using Raven.Client.Indexes;
     using log4net;
     using Raven.Client.Linq;
-
+    
     public class RavenTimeoutPersistence : IPersistTimeouts
     {
         readonly IDocumentStore store;
@@ -16,6 +18,36 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
         public RavenTimeoutPersistence(IDocumentStore store)
         {
             this.store = store;
+
+            if (store.DatabaseCommands.GetIndex("RavenTimeoutPersistence/TimeoutDataSortedByTime") == null)
+            {
+                store.DatabaseCommands.PutIndex("RavenTimeoutPersistence/TimeoutDataSortedByTime",
+                                                new IndexDefinitionBuilder<TimeoutData>
+                                                    {
+                                                        Map = docs => from doc in docs
+                                                                      select new { doc.Time },
+                                                        SortOptions =
+                                                            {
+                                                                {doc => doc.Time, SortOptions.String}
+                                                            },
+                                                        Indexes =
+                                                            {
+                                                                {doc => doc.Time, FieldIndexing.Default}
+                                                            },
+                                                        Stores =
+                                                            {
+                                                                {doc => doc.Time, FieldStorage.No}
+                                                            }
+                                                    });
+            }
+            if (store.DatabaseCommands.GetIndex("RavenTimeoutPersistence/TimeoutData/BySagaId") == null)
+            {
+                store.DatabaseCommands.PutIndex("RavenTimeoutPersistence/TimeoutData/BySagaId", new IndexDefinitionBuilder<TimeoutData>
+                                                                            {
+                                                                                Map = docs => from doc in docs
+                                                                                              select new {doc.SagaId}
+                                                                            });
+            }
         }
 
         public IEnumerable<TimeoutData> GetAll()
@@ -27,13 +59,18 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
 
                 using (var session = OpenSession())
                 {
-                    var query = session.Query<TimeoutData>();
-                    var totalCount = query.Count();
-                    while (skip < totalCount)
+                    RavenQueryStatistics stats;
+
+                    var query = session.Query<TimeoutData>("RavenTimeoutPersistence/TimeoutDataSortedByTime")
+                        .Statistics(out stats)
+                        .Where(data => data.Time < DateTime.UtcNow.AddHours(2)); //Only load the timeouts that are due within 2 hours
+                    do
                     {
-                        results.AddRange(query.Skip(skip).Take(1024).ToList());
+                        results.AddRange(query.Skip(skip).Take(1024));
                         skip += 1024;
-                    }
+                    } 
+                    while (skip < stats.TotalResults);
+
                     return results;
                 }
             }
@@ -52,6 +89,7 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
                 throw;
             }
         }
+
         public void Add(TimeoutData timeout)
         {
             using (var session = OpenSession())
@@ -68,14 +106,13 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
                 session.Advanced.Defer(new DeleteCommandData { Key = timeoutId });
                 session.SaveChanges();
             }
-
         }
 
         public void ClearTimeoutsFor(Guid sagaId)
         {
             using (var session = OpenSession())
             {
-                var items = session.Query<TimeoutData>().Where(x => x.SagaId == sagaId);
+                var items = session.Query<TimeoutData>("RavenTimeoutPersistence/TimeoutData/BySagaId").Where(x => x.SagaId == sagaId);
                 foreach (var item in items)
                     session.Delete(item);
 
@@ -91,6 +128,7 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
 
             return session;
         }
+
         static readonly ILog Logger = LogManager.GetLogger("RavenTimeoutPersistence");
     }
 }

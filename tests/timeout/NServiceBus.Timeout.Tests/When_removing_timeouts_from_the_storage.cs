@@ -18,9 +18,7 @@
 
             persister.Add(t2);
 
-
             var t = persister.GetAll();
-
 
             foreach (var timeoutData in t)
             {
@@ -41,8 +39,6 @@
                 Assert.Null(session.Load<TimeoutData>(t1.Id));
                 Assert.Null(session.Load<TimeoutData>(t2.Id));
             }
-
-
         }
     }
 }

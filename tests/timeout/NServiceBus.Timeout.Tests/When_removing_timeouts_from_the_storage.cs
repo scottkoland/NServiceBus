@@ -1,5 +1,6 @@
 ﻿namespace NServiceBus.Timeout.Tests
 {
+    using System;
     using System.Transactions;
     using Core;
     using NUnit.Framework;
@@ -35,7 +36,7 @@
             using (var session = store.OpenSession())
             {
                 session.Advanced.AllowNonAuthoritativeInformation = false;
-
+                
                 Assert.Null(session.Load<TimeoutData>(t1.Id));
                 Assert.Null(session.Load<TimeoutData>(t2.Id));
             }

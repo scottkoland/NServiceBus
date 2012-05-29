@@ -56,23 +56,25 @@ namespace NServiceBus.Timeout.Hosting.Windows.Persistence
             {
                 var skip = 0;
                 var results = new List<TimeoutData>();
+                var numberOfRequestsExecutedSoFar = 0;
+                RavenQueryStatistics stats;
 
-                using (var session = OpenSession())
+                do
                 {
-                    RavenQueryStatistics stats;
-
-                    var query = session.Query<TimeoutData>("RavenTimeoutPersistence/TimeoutDataSortedByTime")
-                        .Statistics(out stats)
-                        .Where(data => data.Time < DateTime.UtcNow.AddHours(2)); //Only load the timeouts that are due within 2 hours
-                    do
+                    using (var session = OpenSession())
                     {
-                        results.AddRange(query.Skip(skip).Take(1024));
-                        skip += 1024;
-                    } 
-                    while (skip < stats.TotalResults);
+                        var query = session.Query<TimeoutData>("RavenTimeoutPersistence/TimeoutDataSortedByTime")
+                            .Statistics(out stats);
+                        do
+                        {
+                            results.AddRange(query.Skip(skip).Take(1024));
+                            skip += 1024;
+                        }
+                        while (skip < stats.TotalResults && ++numberOfRequestsExecutedSoFar < session.Advanced.MaxNumberOfRequestsPerSession);
+                    }
+                } while (skip < stats.TotalResults);
 
-                    return results;
-                }
+                return results;
             }
             catch (Exception)
             {

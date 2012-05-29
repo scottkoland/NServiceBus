@@ -8,12 +8,12 @@ namespace NServiceBus.Timeout.Tests
     [TestFixture]
     public class When_fetching_timeouts_from_storage : WithRavenTimeoutPersister
     {
-        const int TimeoutsToAdd = 10;
-
         [Test]
-        public void Should_return_the_complete_list_of_timeouts_that_are_due_within_2_hours()
+        public void Should_return_the_complete_list_of_timeouts()
         {
-            for (var i = 0; i < TimeoutsToAdd; i++)
+            const int numberOfTimeoutsToAdd = 10;
+
+            for (var i = 0; i < numberOfTimeoutsToAdd; i++)
             {
                 persister.Add(new TimeoutData
                 {
@@ -21,26 +21,24 @@ namespace NServiceBus.Timeout.Tests
                 });
             }
 
-            Assert.AreEqual(TimeoutsToAdd, persister.GetAll().Count());
+            Assert.AreEqual(numberOfTimeoutsToAdd, persister.GetAll().Count());
         }
 
+
         [Test]
-        public void Should_not_return_timeouts_that_are_not_due_within_2_hours()
+        public void Should_return_the_complete_list_of_timeouts_without_hitting_the_maximum_number_of_requests_allowed_for_this_session_has_been_reached()
         {
-            for (var i = 0; i < TimeoutsToAdd; i++)
+            var numberOfTimeoutsToAdd = (store.Conventions.MaxNumberOfRequestsPerSession + 1) * 1024;
+
+            for (var i = 0; i < numberOfTimeoutsToAdd; i++)
             {
                 persister.Add(new TimeoutData
-                                  {
-                                      Time = DateTime.UtcNow.AddHours(3)
-                                  });
-                persister.Add(new TimeoutData
-                                  {
-                                      Time = DateTime.UtcNow.AddHours(1)
-                                  });
-
+                {
+                    Time = DateTime.UtcNow.AddHours(1)
+                });
             }
 
-            Assert.AreEqual(TimeoutsToAdd, persister.GetAll().Count());
+            Assert.AreEqual(numberOfTimeoutsToAdd, persister.GetAll().Count());
         }
     }
 }

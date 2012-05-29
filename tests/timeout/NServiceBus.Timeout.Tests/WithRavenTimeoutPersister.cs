@@ -18,6 +18,7 @@ namespace NServiceBus.Timeout.Tests
             store = new EmbeddableDocumentStore { RunInMemory = true };
             //store = new DocumentStore { Url = "http://localhost:8080", DefaultDatabase = "MyServer" };
             store.Conventions.DefaultQueryingConsistency = ConsistencyOptions.QueryYourWrites; //This turns on WaitForNonStaleResults() on queries globally
+            store.Conventions.MaxNumberOfRequestsPerSession = 10;
             store.Initialize();
 
             persister = new RavenTimeoutPersistence(store);
